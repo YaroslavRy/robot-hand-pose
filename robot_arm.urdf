@@ -3,14 +3,16 @@
   <!-- Palm -->
   <link name="palm">
     <visual>
+      <origin xyz="0.03 0 -0.05" rpy="0 1.5708 0"/>
       <geometry>
-        <box size="0.082 0.1 0.02"/>
+        <box size="0.072 0.1 0.02"/>
       </geometry>
       <material name="palm_color">
         <color rgba="0.8 0.6 0.4 1"/>
       </material>
     </visual>
     <collision>
+      <origin xyz="0.03 0 -0.05" rpy="0 1.5708 0"/>
       <geometry>
         <box size="0.08 0.1 0.02"/>
       </geometry>
