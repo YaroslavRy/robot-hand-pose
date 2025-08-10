@@ -1,0 +1,193 @@
+<?xml version="1.0"?>
+<robot name="mediapipe_hand">
+  <!-- Palm -->
+  <link name="palm">
+    <visual>
+      <geometry>
+        <box size="0.082 0.1 0.02"/>
+      </geometry>
+      <material name="palm_color">
+        <color rgba="0.8 0.6 0.4 1"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.08 0.1 0.02"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <!-- Thumb -->
+  <link name="thumb1">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.03"/>
+      </geometry>
+      <material name="thumb_color">
+        <color rgba="0.9 0.7 0.5 1"/>
+      </material>
+    </visual>
+  </link>
+  <joint name="thumb_joint1" type="revolute">
+    <parent link="palm"/>
+    <child link="thumb1"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0.03 -0.04 0.01"/>
+  </joint>
+  <link name="thumb2">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.03"/>
+      </geometry>
+      <material name="thumb_color"/>
+    </visual>
+  </link>
+  <joint name="thumb_joint2" type="revolute">
+    <parent link="thumb1"/>
+    <child link="thumb2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0 0 0.03"/>
+  </joint>
+
+  <!-- Index Finger -->
+  <link name="index1">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.04"/>
+      </geometry>
+      <material name="index_color">
+        <color rgba="0.7 0.7 1 1"/>
+      </material>
+    </visual>
+  </link>
+  <joint name="index_joint1" type="revolute">
+    <parent link="palm"/>
+    <child link="index1"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0.03 -0.02 0.01"/>
+  </joint>
+  <link name="index2">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.03"/>
+      </geometry>
+      <material name="index_color"/>
+    </visual>
+  </link>
+  <joint name="index_joint2" type="revolute">
+    <parent link="index1"/>
+    <child link="index2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0 0 0.04"/>
+  </joint>
+
+  <!-- Middle Finger -->
+  <link name="middle1">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.05"/>
+      </geometry>
+      <material name="middle_color">
+        <color rgba="0.7 1 0.7 1"/>
+      </material>
+    </visual>
+  </link>
+  <joint name="middle_joint1" type="revolute">
+    <parent link="palm"/>
+    <child link="middle1"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0.03 0 0.01"/>
+  </joint>
+  <link name="middle2">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.03"/>
+      </geometry>
+      <material name="middle_color"/>
+    </visual>
+  </link>
+  <joint name="middle_joint2" type="revolute">
+    <parent link="middle1"/>
+    <child link="middle2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0 0 0.05"/>
+  </joint>
+
+  <!-- Ring Finger -->
+  <link name="ring1">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.04"/>
+      </geometry>
+      <material name="ring_color">
+        <color rgba="1 0.7 0.7 1"/>
+      </material>
+    </visual>
+  </link>
+  <joint name="ring_joint1" type="revolute">
+    <parent link="palm"/>
+    <child link="ring1"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0.03 0.02 0.01"/>
+  </joint>
+  <link name="ring2">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.03"/>
+      </geometry>
+      <material name="ring_color"/>
+    </visual>
+  </link>
+  <joint name="ring_joint2" type="revolute">
+    <parent link="ring1"/>
+    <child link="ring2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0 0 0.04"/>
+  </joint>
+
+  <!-- Pinky Finger -->
+  <link name="pinky1">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.03"/>
+      </geometry>
+      <material name="pinky_color">
+        <color rgba="1 1 0.7 1"/>
+      </material>
+    </visual>
+  </link>
+  <joint name="pinky_joint1" type="revolute">
+    <parent link="palm"/>
+    <child link="pinky1"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0.03 0.04 0.01"/>
+  </joint>
+  <link name="pinky2">
+    <visual>
+      <geometry>
+        <box size="0.015 0.015 0.02"/>
+      </geometry>
+      <material name="pinky_color"/>
+    </visual>
+  </link>
+  <joint name="pinky_joint2" type="revolute">
+    <parent link="pinky1"/>
+    <child link="pinky2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
+    <origin rpy="0 0 0" xyz="0 0 0.03"/>
+  </joint>
+</robot>
