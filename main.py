@@ -1,6 +1,13 @@
 import pybullet as p
 import pybullet_data
-from hand_model import get_hand_keypoints, extract_finger_angles, release, cap, hands, mp_hands
+from hand_model import (
+    get_hand_keypoints,
+    extract_finger_angles,
+    release,
+    cap,
+    hands,
+    mp_hands,
+)
 import cv2
 import time
 import mediapipe as mp
@@ -17,6 +24,8 @@ robot = p.loadURDF("robot_arm.urdf", [0, 0, 0], useFixedBase=True)
 
 
 joint_indices = [i for i in range(p.getNumJoints(robot))]
+
+print(joint_indices)
 
 
 try:
@@ -35,17 +44,21 @@ try:
                     frame, hand_landmarks, mp_hands.HAND_CONNECTIONS
                 )
             # Use your existing functions to get angles
-            keypoints = np.array([[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark])
+            keypoints = np.array(
+                [[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark]
+            )
             angles = extract_finger_angles(keypoints)
             for i, angle in zip(joint_indices, angles):
-                p.setJointMotorControl2(robot, i, p.POSITION_CONTROL, targetPosition=angle)
+                p.setJointMotorControl2(
+                    robot, i, p.POSITION_CONTROL, targetPosition=angle
+                )
         p.stepSimulation()
 
         cv2.imshow("Hand Pose", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-        time.sleep(1./60)
+        time.sleep(1.0 / 60)
 except KeyboardInterrupt:
     pass
 finally:

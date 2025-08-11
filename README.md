@@ -2,6 +2,7 @@
 
 `Camera stream -> Mediapipe -> Finger angles -> Move robotic arm in simulation`
 
+![Hand simulation demo](assets/image.png)
 
 ## Install
 
@@ -16,3 +17,4 @@
 `python main.py`
 
 ## TODO
+
