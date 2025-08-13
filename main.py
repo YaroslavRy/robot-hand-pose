@@ -7,29 +7,60 @@ from hand_model import (
     cap,
     hands,
     mp_hands,
+    get_palm_orientation,
+    rotation_matrix_to_quaternion,
 )
 import cv2
 import time
 import mediapipe as mp
 import numpy as np
-
+from scipy.spatial.transform import Rotation as R
+import math
 
 p.connect(p.GUI)
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.loadURDF("plane.urdf")
 p.setGravity(0, 0, -9.8)
 
-
-robot = p.loadURDF("robot_arm.urdf", [0, 0, 0], useFixedBase=True)
-
+start_orientation = p.getQuaternionFromEuler([math.pi*2, 0, 0])
+robot = p.loadURDF("robot_arm.urdf", [0, 0, 0.08], start_orientation, useFixedBase=True)
 
 joint_indices = [i for i in range(p.getNumJoints(robot))]
 
-print(joint_indices)
+print("joint_indices", joint_indices)
 
+for i in range(p.getNumJoints(robot)):
+    info = p.getJointInfo(robot, i)
+    print(f"Joint index: {i}, name: {info[1].decode('utf-8')}")
+
+# Add sliders for each joint
+slider_ids = []
+for i in joint_indices:
+    info = p.getJointInfo(robot, i)
+    joint_name = info[1].decode("utf-8")
+    slider = p.addUserDebugParameter(joint_name, -0.1, 1.0, 0.0)
+    slider_ids.append(slider)
+
+# Mapping: robot joint index -> (landmark_a, landmark_b, landmark_c)
+# These are the indices for angle_between_points(a, b, c)
+KEYPOINT_TO_JOINT_MAP = {
+    0: (1, 2, 3),  # thumb_joint1: Thumb CMC-MCP-IP
+    1: (2, 3, 4),  # thumb_joint2: Thumb MCP-IP-tip
+    2: (5, 6, 7),  # index_joint1: Index MCP-PIP-DIP
+    3: (6, 7, 8),  # index_joint2: Index PIP-DIP-tip
+    4: (9, 10, 11),  # middle_joint1: Middle MCP-PIP-DIP
+    5: (10, 11, 12),  # middle_joint2: Middle PIP-DIP-tip
+    6: (13, 14, 15),  # ring_joint1: Ring MCP-PIP-DIP
+    7: (14, 15, 16),  # ring_joint2: Ring PIP-DIP-tip
+    8: (17, 18, 19),  # pinky_joint1: Pinky MCP-PIP-DIP
+    9: (18, 19, 20),  # pinky_joint2: Pinky PIP-DIP-tip
+}
 
 try:
     while True:
+        # Read slider values
+        slider_angles = [p.readUserDebugParameter(s) for s in slider_ids]
+
         ret, frame = cap.read()
         if not ret:
             continue
@@ -39,19 +70,33 @@ try:
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Draw hand landmarks on the frame
                 mp.solutions.drawing_utils.draw_landmarks(
                     frame, hand_landmarks, mp_hands.HAND_CONNECTIONS
                 )
-            # Use your existing functions to get angles
             keypoints = np.array(
                 [[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark]
             )
             angles = extract_finger_angles(keypoints)
-            for i, angle in zip(joint_indices, angles):
-                p.setJointMotorControl2(
-                    robot, i, p.POSITION_CONTROL, targetPosition=angle
+            # --- Palm orientation ---
+            if keypoints.shape == (21, 3):
+                rot = get_palm_orientation(keypoints)
+                # Rotate by -90° around X to make vertical palm = 0 roll
+                correction = R.from_euler("x", -90, degrees=True).as_matrix()
+                rot = correction @ rot
+                quat = rotation_matrix_to_quaternion(rot)
+                p.resetBasePositionAndOrientation(robot, [0, 0, 0], quat)
+
+                # Convert rotation matrix to Euler angles (degrees)
+                euler = R.from_matrix(rot).as_euler("xyz", degrees=True)
+                text = f"Palm Euler: Pitch={euler[0]:.1f}, Yaw={euler[1]:.1f}, Roll={euler[2]:.1f}"
+                cv2.putText(
+                    frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2
                 )
+        else:
+            angles = slider_angles
+
+        for i, angle in zip(joint_indices, angles):
+            p.setJointMotorControl2(robot, i, p.POSITION_CONTROL, targetPosition=angle)
         p.stepSimulation()
 
         cv2.imshow("Hand Pose", frame)

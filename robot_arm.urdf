@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <robot name="mediapipe_hand">
+  <link name="base"/>
   <!-- Palm -->
   <link name="palm">
     <visual>
@@ -191,5 +192,12 @@
     <axis xyz="0 1 0"/>
     <limit lower="-1.0" upper="1.0" effort="5" velocity="1.0"/>
     <origin rpy="0 0 0" xyz="0 0 0.03"/>
+  </joint>
+
+  <!-- Base to Palm Joint -->
+  <joint name="base_to_palm" type="fixed">
+    <parent link="base"/>
+    <child link="palm"/>
+    <origin xyz="0 0 0.08" rpy="0 0 0"/>
   </joint>
 </robot>

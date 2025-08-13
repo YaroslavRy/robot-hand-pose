@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import mediapipe as mp
+import pybullet as p
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
@@ -57,6 +58,38 @@ def extract_finger_angles(keypoints):
         # Optionally scale/offset to fit joint limits
         angles.append(np.clip(angle - np.pi / 2, -1.0, 1.0))  # Center at 0
     return angles
+
+
+def get_palm_orientation(keypoints):
+    # keypoints: np.array shape (21, 3)
+    wrist = keypoints[0]
+    index_base = keypoints[5]
+    pinky_base = keypoints[17]
+
+    # Palm x-axis: from wrist to middle between index and pinky base
+    palm_x = ((index_base + pinky_base) / 2) - wrist
+    palm_x /= np.linalg.norm(palm_x)
+
+    # Palm y-axis: from wrist to index base
+    palm_y = index_base - wrist
+    palm_y /= np.linalg.norm(palm_y)
+
+    # Palm z-axis: cross product (normal to palm)
+    palm_z = np.cross(palm_x, palm_y)
+    palm_z /= np.linalg.norm(palm_z)
+
+    # Re-orthogonalize axes
+    palm_y = np.cross(palm_z, palm_x)
+    palm_y /= np.linalg.norm(palm_y)
+
+    # Rotation matrix
+    rot = np.stack([palm_x, palm_y, palm_z], axis=1)
+    return rot
+
+
+def rotation_matrix_to_quaternion(rot):
+    # PyBullet expects [x, y, z, w]
+    return p.getQuaternionFromEuler(list(cv2.Rodrigues(rot)[0].flatten()))
 
 
 def release():
