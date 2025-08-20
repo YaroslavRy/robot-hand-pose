@@ -166,17 +166,6 @@ try:
 
         p.stepSimulation()
 
-        # Add instructions to the frame
-        cv2.putText(
-            frame,
-            "Press 'q' to quit",
-            (10, frame.shape[0] - 20),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (255, 255, 255),
-            1,
-        )
-
         cv2.imshow("Hand Pose", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
