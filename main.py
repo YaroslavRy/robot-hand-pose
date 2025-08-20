@@ -3,11 +3,13 @@ import pybullet_data
 from hand_model import (
     get_hand_keypoints,
     extract_finger_angles,
+    extract_finger_angles_alternative,
     release,
     cap,
     hands,
     mp_hands,
     get_simple_hand_rotation,
+    debug_finger_curl,
 )
 import cv2
 import time
@@ -20,42 +22,34 @@ p.connect(p.GUI)
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.loadURDF("plane.urdf")
 p.setGravity(0, 0, -9.8)
-
-# Better initial orientation - hand pointing up
 start_orientation = p.getQuaternionFromEuler([0, 0, 0])
 robot = p.loadURDF("robot_arm.urdf", [0, 0, 0.1], start_orientation, useFixedBase=True)
-
-# Set up camera to be close to the hand
 p.resetDebugVisualizerCamera(
-    cameraDistance=0.3,  # Much closer - was default ~1.0
-    cameraYaw=45,  # Angled view
-    cameraPitch=-20,  # Looking slightly down
-    cameraTargetPosition=[0, 0, 0.15],  # Focus on hand area
+    cameraDistance=0.3,
+    cameraYaw=45,
+    cameraPitch=-20,
+    cameraTargetPosition=[0, 0, 0.15],
 )
-
-# Speed up physics for faster response
-p.setTimeStep(1.0 / 240.0)  # Faster physics timestep
-p.setRealTimeSimulation(0)  # Disable real-time for maximum speed
+p.setTimeStep(1.0 / 240.0)
+p.setRealTimeSimulation(0)
 
 joint_indices = [i for i in range(p.getNumJoints(robot))]
-print("joint_indices", joint_indices)
-
 for i in range(p.getNumJoints(robot)):
     info = p.getJointInfo(robot, i)
     print(f"Joint index: {i}, name: {info[1].decode('utf-8')}")
 
-# Add sliders for each joint with better default ranges
 slider_ids = []
 for i in joint_indices:
     info = p.getJointInfo(robot, i)
     joint_name = info[1].decode("utf-8")
-    # Set slider range to match our scaled angles
-    slider = p.addUserDebugParameter(joint_name, -0.5, 1.5, 0.0)
+    slider = p.addUserDebugParameter(joint_name, -0.5, 1.8, 0.0)
     slider_ids.append(slider)
 
-# Store previous angles for smoothing
+method_slider = p.addUserDebugParameter("Method (0=curl, 1=angle)", 0, 1, 0)
+sensitivity_slider = p.addUserDebugParameter("Sensitivity", 0.5, 2.0, 1.0)
+smoothing_slider = p.addUserDebugParameter("Smoothing", 0.01, 0.2, 0.05)
+
 previous_angles = [0.0] * len(joint_indices)
-smoothing_factor = 0.05  # Minimal smoothing for maximum speed
 
 
 def smooth_angles(new_angles, prev_angles, factor):
@@ -65,8 +59,21 @@ def smooth_angles(new_angles, prev_angles, factor):
     ]
 
 
+def apply_sensitivity(angles, sensitivity):
+    """Apply sensitivity scaling to angles"""
+    return [angle * sensitivity for angle in angles]
+
+
 try:
+    frame_count = 0
     while True:
+        frame_count += 1
+
+        # Read control parameters
+        use_angle_method = p.readUserDebugParameter(method_slider) > 0.5
+        sensitivity = p.readUserDebugParameter(sensitivity_slider)
+        smoothing_factor = p.readUserDebugParameter(smoothing_slider)
+
         # Read slider values as fallback
         slider_angles = [p.readUserDebugParameter(s) for s in slider_ids]
 
@@ -92,12 +99,32 @@ try:
                 [[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark]
             )
 
-            # Extract finger angles (now fixed for correct direction)
-            raw_angles = extract_finger_angles(keypoints)
+            # Choose method based on slider
+            if use_angle_method:
+                raw_angles = extract_finger_angles_alternative(keypoints)
+                method_text = "Method: Angle-based"
+            else:
+                raw_angles = extract_finger_angles(keypoints)
+                method_text = "Method: Curl-based"
 
-            # Apply minimal smoothing for faster response
+            # Apply sensitivity
+            raw_angles = apply_sensitivity(raw_angles, sensitivity)
+
+            # Apply smoothing
             angles = smooth_angles(raw_angles, previous_angles, smoothing_factor)
             previous_angles = angles.copy()
+
+            # Debug: Print curl values every 30 frames (about once per second)
+            if frame_count % 30 == 0 and not use_angle_method:
+                fingers = [
+                    [1, 2, 3, 4],  # Thumb
+                    [5, 6, 7, 8],  # Index
+                    [9, 10, 11, 12],  # Middle
+                    [13, 14, 15, 16],  # Ring
+                    [17, 18, 19, 20],  # Pinky
+                ]
+                for i, finger_points in enumerate(fingers):
+                    debug_finger_curl(keypoints, i, finger_points)
 
             # --- Visual feedback ---
             # Draw line between wrist and middle finger base
@@ -107,14 +134,33 @@ try:
             pt2 = pt2.astype(int)
             cv2.line(frame, tuple(pt1), tuple(pt2), (0, 255, 0), 2)
 
-            # Calculate palm angle for display
-            dx = pt2[0] - pt1[0]
-            dy = pt2[1] - pt1[1]
-            angle_rad = np.arctan2(dy, dx)
-            angle_deg = np.degrees(angle_rad)
-            text = f"Palm angle: {angle_deg:.1f} deg"
+            # Display method and sensitivity
             cv2.putText(
-                frame, text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1
+                frame,
+                method_text,
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 255),
+                1,
+            )
+            cv2.putText(
+                frame,
+                f"Sensitivity: {sensitivity:.1f}",
+                (10, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.4,
+                (0, 255, 255),
+                1,
+            )
+            cv2.putText(
+                frame,
+                f"Smoothing: {smoothing_factor:.2f}",
+                (10, 70),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.4,
+                (0, 255, 255),
+                1,
             )
 
             # --- Palm orientation ---
@@ -123,21 +169,28 @@ try:
                     quat = get_simple_hand_rotation(keypoints)
                     current_pos, _ = p.getBasePositionAndOrientation(robot)
                     p.resetBasePositionAndOrientation(robot, current_pos, quat)
-                except Exception as e:
+                except Exception:
                     pass
 
             # Display finger angles for debugging
             finger_names = ["Thumb", "Index", "Middle", "Ring", "Pinky"]
             for i, finger in enumerate(finger_names):
                 if i * 2 < len(angles) and i * 2 + 1 < len(angles):
-                    text = f"{finger}: {angles[i*2]:.2f}, {angles[i*2+1]:.2f}"
+                    angle1, angle2 = angles[i * 2], angles[i * 2 + 1]
+                    # Color code: green for normal range, red for extreme values
+                    color = (
+                        (0, 255, 0)
+                        if -0.5 < angle1 < 1.5 and -0.5 < angle2 < 1.5
+                        else (0, 0, 255)
+                    )
+                    text = f"{finger}: {angle1:.2f}, {angle2:.2f}"
                     cv2.putText(
                         frame,
                         text,
                         (10, 100 + i * 20),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.4,
-                        (255, 255, 0),
+                        color,
                         1,
                     )
 
@@ -153,23 +206,22 @@ try:
                 angle = angles[i]
                 joint_id = joint_indices[i]
 
+                # Enhanced motor control with better parameters
                 p.setJointMotorControl2(
                     robot,
                     joint_id,
                     p.POSITION_CONTROL,
                     targetPosition=angle,
-                    force=600,  # Moderate force - enough power but not excessive
-                    maxVelocity=35.0,  # Fast enough for real-time tracking
-                    positionGain=1.5,  # Balanced - responsive but not jittery
-                    velocityGain=0.4,  # Good damping to prevent oscillation
+                    force=800,  # Increased force for faster response
+                    maxVelocity=50.0,  # Increased max velocity
+                    positionGain=2.0,  # Higher gain for more responsive tracking
+                    velocityGain=0.3,  # Lower velocity gain to prevent oscillation
                 )
 
         p.stepSimulation()
-
         cv2.imshow("Hand Pose", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
-
         time.sleep(1.0 / 240)  # Even higher frame rate to match physics
 
 except KeyboardInterrupt:
