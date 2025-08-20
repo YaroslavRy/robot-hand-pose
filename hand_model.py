@@ -28,22 +28,38 @@ def get_hand_keypoints():
         return None
 
 
-def angle_between_points(a, b, c):
-    """Calculate angle at point b between points a and c"""
-    ba = a - b
-    bc = c - b
-    cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
-    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)  # Prevent numerical errors
-    return np.arccos(cosine_angle)
+def calculate_finger_curl(keypoints, finger_points):
+    """
+    Calculate finger curl using distance-based method
+    More reliable than angle-based for MediaPipe landmarks
+    """
+    # Get the four points for this finger
+    mcp, pip, dip, tip = [keypoints[i] for i in finger_points]
+    
+    # Calculate the "straight" distance (MCP to tip)
+    straight_distance = np.linalg.norm(tip - mcp)
+    
+    # Calculate the "bent" distance (sum of segments)
+    bent_distance = (np.linalg.norm(pip - mcp) + 
+                    np.linalg.norm(dip - pip) + 
+                    np.linalg.norm(tip - dip))
+    
+    # Curl ratio: 0 = straight, 1 = fully curled
+    # When straight: bent_distance ≈ straight_distance, ratio ≈ 0
+    # When curled: bent_distance > straight_distance, ratio approaches 1
+    curl_ratio = 1 - (straight_distance / bent_distance) if bent_distance > 0 else 0
+    curl_ratio = np.clip(curl_ratio, 0, 1)
+    
+    return curl_ratio
 
 
 def extract_finger_angles(keypoints):
     """
-    Extract finger bend angles - with proper neutral position handling
+    Extract finger bend angles using improved curl detection
     """
     angles = []
     
-    # Define finger joints
+    # Define finger joints (MediaPipe landmark indices)
     fingers = [
         [1, 2, 3, 4],    # Thumb
         [5, 6, 7, 8],    # Index  
@@ -53,28 +69,78 @@ def extract_finger_angles(keypoints):
     ]
     
     for finger_idx, finger_points in enumerate(fingers):
-        # First joint: base to middle
-        p1, p2, p3 = finger_points[0], finger_points[1], finger_points[2]
-        angle1 = angle_between_points(keypoints[p1], keypoints[p2], keypoints[p3])
-        bend1 = np.pi - angle1  # Convert to bend angle
+        # Calculate curl ratio for the whole finger
+        curl_ratio = calculate_finger_curl(keypoints, finger_points)
         
-        # Second joint: middle to tip  
-        p1, p2, p3 = finger_points[1], finger_points[2], finger_points[3]
-        angle2 = angle_between_points(keypoints[p1], keypoints[p2], keypoints[p3])
-        bend2 = np.pi - angle2  # Convert to bend angle
+        # For robot control, we need two joint angles per finger
+        # Distribute the curl across both joints
         
-        # FIXED: Better scaling with proper neutral position
-        if finger_idx == 0:  # Thumb
-            # Map from bend angle to robot joint angle
-            # When bend=0 (straight), robot should be at -0.2 (slightly back)
-            # When bend=high (closed), robot should be at 1.2 (forward)
-            scaled1 = np.clip((bend1 * 2.5) - 0.2, -0.3, 1.2)  
-            scaled2 = np.clip((bend2 * 2.5) - 0.2, -0.3, 1.2)
+        if finger_idx == 0:  # Thumb - different scaling
+            # Thumb has different range of motion
+            joint1_angle = np.clip(curl_ratio * 1.8 - 0.2, -0.3, 1.5)
+            joint2_angle = np.clip(curl_ratio * 1.6 - 0.1, -0.3, 1.3)
         else:  # Other fingers
-            # When bend=0 (straight), robot should be at -0.1 (back/straight)
-            # When bend=high (closed), robot should be at 1.5 (forward/bent)
-            scaled1 = np.clip((bend1 * 3.0) - 0.1, -0.2, 1.5)
-            scaled2 = np.clip((bend2 * 3.0) - 0.1, -0.2, 1.5)
+            # Map curl ratio to joint angles
+            # Open hand: curl_ratio ≈ 0 → angles ≈ -0.1 (slightly back)
+            # Closed fist: curl_ratio ≈ 1 → angles ≈ 1.4 (fully forward)
+            joint1_angle = np.clip(curl_ratio * 1.6 - 0.1, -0.2, 1.5)
+            joint2_angle = np.clip(curl_ratio * 1.4 - 0.05, -0.2, 1.3)
+        
+        angles.extend([joint1_angle, joint2_angle])
+        
+    return angles
+
+
+def angle_between_points(a, b, c):
+    """Calculate angle at point b between points a and c"""
+    ba = a - b
+    bc = c - b
+    cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
+    return np.arccos(cosine_angle)
+
+
+def extract_finger_angles_alternative(keypoints):
+    """
+    Alternative method using improved angle calculation
+    Use this if curl method doesn't work well for you
+    """
+    angles = []
+    
+    fingers = [
+        [1, 2, 3, 4],    # Thumb
+        [5, 6, 7, 8],    # Index  
+        [9, 10, 11, 12], # Middle
+        [13, 14, 15, 16],# Ring
+        [17, 18, 19, 20] # Pinky
+    ]
+    
+    for finger_idx, finger_points in enumerate(fingers):
+        # First joint angle (MCP-PIP-DIP)
+        angle1 = angle_between_points(
+            keypoints[finger_points[0]], 
+            keypoints[finger_points[1]], 
+            keypoints[finger_points[2]]
+        )
+        
+        # Second joint angle (PIP-DIP-TIP)
+        angle2 = angle_between_points(
+            keypoints[finger_points[1]], 
+            keypoints[finger_points[2]], 
+            keypoints[finger_points[3]]
+        )
+        
+        # Convert to bend angles and scale properly
+        bend1 = np.pi - angle1
+        bend2 = np.pi - angle2
+        
+        # Improved scaling with better range mapping
+        if finger_idx == 0:  # Thumb
+            scaled1 = np.clip((bend1 * 1.8) - 0.3, -0.4, 1.6)  
+            scaled2 = np.clip((bend2 * 1.6) - 0.2, -0.3, 1.4)
+        else:  # Other fingers  
+            scaled1 = np.clip((bend1 * 2.2) - 0.2, -0.3, 1.7)
+            scaled2 = np.clip((bend2 * 2.0) - 0.1, -0.2, 1.5)
         
         angles.extend([scaled1, scaled2])
         
@@ -141,6 +207,16 @@ def get_simple_hand_rotation(keypoints):
     
     euler = [0, 0, angle]
     return p.getQuaternionFromEuler(euler)
+
+
+def debug_finger_curl(keypoints, finger_idx, finger_points):
+    """
+    Debug function to print curl values for a specific finger
+    """
+    curl = calculate_finger_curl(keypoints, finger_points)
+    finger_names = ["Thumb", "Index", "Middle", "Ring", "Pinky"]
+    print(f"{finger_names[finger_idx]}: curl = {curl:.3f}")
+    return curl
 
 
 def release():
