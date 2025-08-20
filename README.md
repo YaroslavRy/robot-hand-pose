@@ -1,5 +1,9 @@
 # 🦾 A simple Pybullet robot hand model 
 
+## WIP
+
+![Hand simulation demo](assets/0820.png)
+
 Reflects your hand movement from hand pose estimation via `Mediapipe`
 
 `Camera stream -> Mediapipe -> Finger angles -> Move robotic arm in Pybullet simulation`
