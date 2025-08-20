@@ -27,14 +27,14 @@ robot = p.loadURDF("robot_arm.urdf", [0, 0, 0.1], start_orientation, useFixedBas
 
 # Set up camera to be close to the hand
 p.resetDebugVisualizerCamera(
-    cameraDistance=0.3,     # Much closer - was default ~1.0
-    cameraYaw=45,           # Angled view
-    cameraPitch=-20,        # Looking slightly down
-    cameraTargetPosition=[0, 0, 0.15]  # Focus on hand area
+    cameraDistance=0.3,  # Much closer - was default ~1.0
+    cameraYaw=45,  # Angled view
+    cameraPitch=-20,  # Looking slightly down
+    cameraTargetPosition=[0, 0, 0.15],  # Focus on hand area
 )
 
 # Speed up physics for faster response
-p.setTimeStep(1./240.)  # Faster physics timestep
+p.setTimeStep(1.0 / 240.0)  # Faster physics timestep
 p.setRealTimeSimulation(0)  # Disable real-time for maximum speed
 
 joint_indices = [i for i in range(p.getNumJoints(robot))]
@@ -57,9 +57,13 @@ for i in joint_indices:
 previous_angles = [0.0] * len(joint_indices)
 smoothing_factor = 0.05  # Minimal smoothing for maximum speed
 
+
 def smooth_angles(new_angles, prev_angles, factor):
     """Apply exponential smoothing to reduce jitter"""
-    return [factor * prev + (1 - factor) * new for new, prev in zip(new_angles, prev_angles)]
+    return [
+        factor * prev + (1 - factor) * new for new, prev in zip(new_angles, prev_angles)
+    ]
+
 
 try:
     while True:
@@ -72,7 +76,7 @@ try:
 
         # Flip frame horizontally for mirror effect
         frame = cv2.flip(frame, 1)
-        
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frame_rgb)
 
@@ -82,15 +86,15 @@ try:
                 mp.solutions.drawing_utils.draw_landmarks(
                     frame, hand_landmarks, mp_hands.HAND_CONNECTIONS
                 )
-            
+
             # Get keypoints and calculate angles
             keypoints = np.array(
                 [[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark]
             )
-            
+
             # Extract finger angles (now fixed for correct direction)
             raw_angles = extract_finger_angles(keypoints)
-            
+
             # Apply minimal smoothing for faster response
             angles = smooth_angles(raw_angles, previous_angles, smoothing_factor)
             previous_angles = angles.copy()
@@ -117,11 +121,11 @@ try:
             if keypoints.shape == (21, 3):
                 try:
                     quat = get_simple_hand_rotation(keypoints)
-                    
+
                     # Apply orientation to robot
                     current_pos, _ = p.getBasePositionAndOrientation(robot)
                     p.resetBasePositionAndOrientation(robot, current_pos, quat)
-                    
+
                     # Display simple angle
                     wrist = keypoints[0]
                     middle_mcp = keypoints[9]
@@ -129,19 +133,31 @@ try:
                     angle_deg = np.degrees(np.arctan2(direction[1], direction[0]))
                     text = f"Hand rotation: {angle_deg:.1f} deg"
                     cv2.putText(
-                        frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1
+                        frame,
+                        text,
+                        (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        1,
                     )
                 except Exception as e:
                     print(f"Orientation error: {e}")
                     pass
 
             # Display finger angles for debugging
-            finger_names = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky']
+            finger_names = ["Thumb", "Index", "Middle", "Ring", "Pinky"]
             for i, finger in enumerate(finger_names):
-                if i*2 < len(angles) and i*2+1 < len(angles):
+                if i * 2 < len(angles) and i * 2 + 1 < len(angles):
                     text = f"{finger}: {angles[i*2]:.2f}, {angles[i*2+1]:.2f}"
                     cv2.putText(
-                        frame, text, (10, 100 + i*20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1
+                        frame,
+                        text,
+                        (10, 100 + i * 20),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.4,
+                        (255, 255, 0),
+                        1,
                     )
 
         else:
@@ -155,26 +171,31 @@ try:
             if i < len(angles):
                 angle = angles[i]
                 joint_id = joint_indices[i]
-                
+
                 p.setJointMotorControl2(
-                    robot, joint_id, p.POSITION_CONTROL, 
+                    robot,
+                    joint_id,
+                    p.POSITION_CONTROL,
                     targetPosition=angle,
-                    force=1000,        # Moderate force - enough power but not excessive
-                    maxVelocity=55.0, # Fast enough for real-time tracking
-                    positionGain=0.5, # Balanced - responsive but not jittery
-                    velocityGain=0.4  # Good damping to prevent oscillation
+                    force=1000,  # Moderate force - enough power but not excessive
+                    maxVelocity=55.0,  # Fast enough for real-time tracking
+                    positionGain=0.5,  # Balanced - responsive but not jittery
+                    velocityGain=0.4,  # Good damping to prevent oscillation
                 )
-        
+
         p.stepSimulation()
 
         # Add instructions to the frame
-        cv2.putText(frame, "Press 'q' to quit, 't' to test fingers", (10, frame.shape[0] - 20), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(frame, "Make a FIST - fingers should CLOSE", (10, frame.shape[0] - 40), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(frame, "Open hand - fingers should OPEN", (10, frame.shape[0] - 60), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        
+        cv2.putText(
+            frame,
+            "Press 'q' to quit, 't' to test fingers",
+            (10, frame.shape[0] - 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            1,
+        )
+
         cv2.imshow("Hand Pose", frame)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
@@ -185,15 +206,17 @@ try:
             for test_angle in [0.0, 0.5, 1.0, 1.5, 0.0]:
                 test_angles = [test_angle] * len(joint_indices)
                 for i, angle in zip(joint_indices, test_angles):
-                    p.setJointMotorControl2(robot, i, p.POSITION_CONTROL, targetPosition=angle, force=1000)
+                    p.setJointMotorControl2(
+                        robot, i, p.POSITION_CONTROL, targetPosition=angle, force=1000
+                    )
                 for _ in range(60):  # Hold position for 1 second
                     p.stepSimulation()
-                    time.sleep(1.0/60)
+                    time.sleep(1.0 / 60)
                 print(f"Test angle: {test_angle}")
             print("Test complete!")
 
         time.sleep(1.0 / 240)  # Even higher frame rate to match physics
-        
+
 except KeyboardInterrupt:
     pass
 finally:
