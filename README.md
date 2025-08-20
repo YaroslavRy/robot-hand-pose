@@ -18,3 +18,9 @@
 
 ## TODO
 
+- [x] Basic implementation
+- [ ] Add finger phalanges
+- [ ] Advanced finger movement
+- [ ] Refactor
+
+
