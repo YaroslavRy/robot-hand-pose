@@ -114,7 +114,7 @@ try:
             angle_deg = np.degrees(angle_rad)
             text = f"Palm angle: {angle_deg:.1f} deg"
             cv2.putText(
-                frame, text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2
+                frame, text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1
             )
 
             # --- Palm orientation ---
