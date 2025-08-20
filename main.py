@@ -117,32 +117,13 @@ try:
                 frame, text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2
             )
 
-            # --- Palm orientation (simplified) ---
+            # --- Palm orientation ---
             if keypoints.shape == (21, 3):
                 try:
                     quat = get_simple_hand_rotation(keypoints)
-
-                    # Apply orientation to robot
                     current_pos, _ = p.getBasePositionAndOrientation(robot)
                     p.resetBasePositionAndOrientation(robot, current_pos, quat)
-
-                    # Display simple angle
-                    wrist = keypoints[0]
-                    middle_mcp = keypoints[9]
-                    direction = middle_mcp[:2] - wrist[:2]
-                    angle_deg = np.degrees(np.arctan2(direction[1], direction[0]))
-                    text = f"Hand rotation: {angle_deg:.1f} deg"
-                    cv2.putText(
-                        frame,
-                        text,
-                        (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (0, 255, 0),
-                        1,
-                    )
                 except Exception as e:
-                    print(f"Orientation error: {e}")
                     pass
 
             # Display finger angles for debugging
@@ -177,9 +158,9 @@ try:
                     joint_id,
                     p.POSITION_CONTROL,
                     targetPosition=angle,
-                    force=1000,  # Moderate force - enough power but not excessive
-                    maxVelocity=55.0,  # Fast enough for real-time tracking
-                    positionGain=0.5,  # Balanced - responsive but not jittery
+                    force=600,  # Moderate force - enough power but not excessive
+                    maxVelocity=35.0,  # Fast enough for real-time tracking
+                    positionGain=1.5,  # Balanced - responsive but not jittery
                     velocityGain=0.4,  # Good damping to prevent oscillation
                 )
 
@@ -188,7 +169,7 @@ try:
         # Add instructions to the frame
         cv2.putText(
             frame,
-            "Press 'q' to quit, 't' to test fingers",
+            "Press 'q' to quit",
             (10, frame.shape[0] - 20),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
@@ -197,23 +178,8 @@ try:
         )
 
         cv2.imshow("Hand Pose", frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
-        elif key == ord("t"):
-            # Test mode - cycle through finger positions
-            print("Testing finger movement...")
-            for test_angle in [0.0, 0.5, 1.0, 1.5, 0.0]:
-                test_angles = [test_angle] * len(joint_indices)
-                for i, angle in zip(joint_indices, test_angles):
-                    p.setJointMotorControl2(
-                        robot, i, p.POSITION_CONTROL, targetPosition=angle, force=1000
-                    )
-                for _ in range(60):  # Hold position for 1 second
-                    p.stepSimulation()
-                    time.sleep(1.0 / 60)
-                print(f"Test angle: {test_angle}")
-            print("Test complete!")
 
         time.sleep(1.0 / 240)  # Even higher frame rate to match physics
 
