@@ -22,7 +22,7 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.loadURDF("plane.urdf")
 p.setGravity(0, 0, -9.8)
 
-start_orientation = p.getQuaternionFromEuler([math.pi*2, 0, 0])
+start_orientation = p.getQuaternionFromEuler([math.pi * 2, 0, 0])
 robot = p.loadURDF("robot_arm.urdf", [0, 0, 0.08], start_orientation, useFixedBase=True)
 
 joint_indices = [i for i in range(p.getNumJoints(robot))]
@@ -77,6 +77,24 @@ try:
                 [[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark]
             )
             angles = extract_finger_angles(keypoints)
+
+            # --- Line between wrist (0) and middle finger base (9) ---
+            pt1 = keypoints[0][:2] * np.array([frame.shape[1], frame.shape[0]])
+            pt2 = keypoints[9][:2] * np.array([frame.shape[1], frame.shape[0]])
+            pt1 = pt1.astype(int)
+            pt2 = pt2.astype(int)
+            cv2.line(frame, tuple(pt1), tuple(pt2), (0, 0, 255), 2)
+
+            # --- Angle with respect to horizon (X axis) ---
+            dx = pt2[0] - pt1[0]
+            dy = pt2[1] - pt1[1]
+            angle_rad = np.arctan2(dy, dx)
+            angle_deg = np.degrees(angle_rad)
+            text = f"Palm angle: {angle_deg:.1f} deg"
+            cv2.putText(
+                frame, text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2
+            )
+
             # --- Palm orientation ---
             if keypoints.shape == (21, 3):
                 rot = get_palm_orientation(keypoints)
@@ -90,8 +108,24 @@ try:
                 euler = R.from_matrix(rot).as_euler("xyz", degrees=True)
                 text = f"Palm Euler: Pitch={euler[0]:.1f}, Yaw={euler[1]:.1f}, Roll={euler[2]:.1f}"
                 cv2.putText(
-                    frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2
+                    frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1
                 )
+
+                # Draw palm roll direction as a line
+                # Palm center in image coordinates
+                palm_center = keypoints[0][:2] * np.array(
+                    [frame.shape[1], frame.shape[0]]
+                )
+                palm_center = palm_center.astype(int)
+
+                # Use roll angle to draw direction
+                roll_rad = np.deg2rad(euler[2])
+                length = 50  # length of the line
+                dx = int(length * np.cos(roll_rad))
+                dy = int(length * np.sin(roll_rad))
+                end_point = (palm_center[0] + dx, palm_center[1] + dy)
+
+                cv2.line(frame, tuple(palm_center), end_point, (0, 0, 255), 2)
         else:
             angles = slider_angles
 
