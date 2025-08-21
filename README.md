@@ -12,11 +12,11 @@ Reflects your hand movement from hand pose estimation via `Mediapipe`
 
 ## Install
 
-`conda create --name mp_env python=3.10 numpy`
-
-`conda activate mp_env`
-
-`pip install -r requirements.txt`
+```
+conda create --name mp_env python=3.10 numpy
+conda activate mp_env
+pip install -r requirements.txt
+```
 
 ## Run
 
