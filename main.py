@@ -16,7 +16,7 @@ import time
 import mediapipe as mp
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import math
+from settings import SETTINGS
 
 p.connect(p.GUI)
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -212,10 +212,10 @@ try:
                     joint_id,
                     p.POSITION_CONTROL,
                     targetPosition=angle,
-                    force=800,  # Increased force for faster response
-                    maxVelocity=50.0,  # Increased max velocity
-                    positionGain=2.0,  # Higher gain for more responsive tracking
-                    velocityGain=0.3,  # Lower velocity gain to prevent oscillation
+                    force=SETTINGS["force"], 
+                    maxVelocity=SETTINGS["max_velocity"],  
+                    positionGain=SETTINGS["position_gain"],  
+                    velocityGain=SETTINGS["velocity_gain"],  
                 )
 
         p.stepSimulation()
